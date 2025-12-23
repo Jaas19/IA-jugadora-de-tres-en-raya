@@ -5,14 +5,16 @@ EMPTY_INPUT = [1,0,0]
 board = [list(EMPTY_INPUT) for _ in range(9)]
 
 # Función ejecutada para comprobar si se continua el juego
-def check_empty_tiles(board):
+def check_empty_tiles():
+    global board
     for tile in board:
         if tile == EMPTY_INPUT:
             return True
     return False
 
 # Función ejecutada en cada movimiento
-def check_board(board):
+def check_board():
+    global board
     rows = [
         board[0:3],
         board[3:6],
@@ -34,6 +36,7 @@ def check_board(board):
     return 0
 
 def change_board(position, movement):
+    global board
     if board[position] != EMPTY_INPUT:
         return -100
     else:
