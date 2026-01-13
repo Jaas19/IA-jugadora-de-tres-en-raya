@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import os
 from collections import deque
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -187,55 +188,90 @@ class DQNAgent:
         self.model.save(name)
 
     def load_model(self, name):
-        self.model = tf.keras.models.load_model(name)
+        self.model = tf.keras.models.load_model(name, compile=False)
+        self.model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate))
 
 
-def main():
+def main(repetitions = 1):
     env = TicTacToeEnv()
     state_size = 27
     action_size = 9
     agent = DQNAgent(state_size, action_size)
 
+    file_name = "tictactoe_ia.h5"
+
+    directory = os.path.dirname(os.path.abspath(__file__))
+    file = os.path.join(directory, file_name)
+
     episodes = 5000
     batch_size = 32
 
-    print("--- Training Start ---")
+    print("--- Configurando IA ---")
 
-    for e in range(episodes):
-        if (e // 20) % 2 == 0:
-            env.difficulty = "random"
-        else:
-            env.difficulty = "minimax"
+    print("\n--- Buscando IA existente ---")
+    print(f"Ruta de la carpeta: {directory}")
+    print(f"Buscando el archivo .h5 en: {file}")
 
-        if e % 20 == 0:
-            print(f">>> Cambiando dificultad a: {env.difficulty}")
+    if os.path.exists(file):
+        print("Archivo encontrado")
 
-        state = env.reset()
-        state = np.reshape(state, [1, state_size])
-        total_reward = 0
+        print("--- Intentando cargar IA ---")
+        try:
+            agent.load_model(file)
+            print("IA cargada exitosamente")
+            agent.epsilon = 0
+            agent.epsilon_decay = 0.99995
 
-        for _ in range(9):
-            action = agent.act(state)
-            next_state, reward, done = env.step(action)
-            next_state = np.reshape(next_state, [1, state_size])
+        except Exception as e:
+            print(f"El archivo existe, pero falló la carga:\n{e}")
+            print("Se creará una IA desde cero.")
+            agent.epsilon = 1.0
+    else:
+        print("No se encontró una IA en esta ruta.")
+        print("Se creará una IA desde cero.")
+        agent.epsilon = 1.0
 
-            agent.remember(state, action, reward, next_state, done)
-            state = next_state
-            total_reward += reward
-            if done:
-                break
+    loops = 0
+    while loops < repetitions:
+        print("--- Iniciando entrenamiento ---")
 
-        if len(agent.memory) > batch_size:
-            agent.replay(batch_size)
+        for e in range(episodes):
+            if (e // 20) % 2 == 0:
+                env.difficulty = "random"
+            else:
+                env.difficulty = "minimax"
 
-        if (e + 1) % 10 == 0:
-            print(
-                f"Episodio: {e + 1}/{episodes} ({env.difficulty}), Puntaje: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+            if e % 20 == 0 and e > 0:
+                print(f">>> Cambiando dificultad a: {env.difficulty}")
 
-    print("--- Fin del entrenamiento ---")
+            state = env.reset()
+            state = np.reshape(state, [1, state_size])
+            total_reward = 0
 
-    agent.save_model("tictactoe_ia.h5")
-    print("Modelo guardado.")
+            for _ in range(9):
+                action = agent.act(state)
+                next_state, reward, done = env.step(action)
+                next_state = np.reshape(next_state, [1, state_size])
+
+                agent.remember(state, action, reward, next_state, done)
+                state = next_state
+                total_reward += reward
+                if done:
+                    break
+
+            if len(agent.memory) > batch_size:
+                agent.replay(batch_size)
+
+            if (e + 1) % 10 == 0:
+                print(
+                    f"Episodio: {e + 1}/{episodes} ({env.difficulty}), Puntaje: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+
+        print("--- Fin del entrenamiento")
+
+        # Guardamos el progreso
+        agent.save_model(file_name)
+        print(f"Modelo actualizado guardado en '{file_name}'")
+        loops += 1
 
     print("\n--- Juego de demostración ---")
     state = env.reset()
@@ -278,4 +314,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(1)
